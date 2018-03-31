@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [[ $# -eq 0 ]]
+then
+	echo "usage: >./api_test [number of requests]"
+	exit 0;
+fi
+
+num_usr="$1"
+
+C:/Apache24/bin/ab.exe -p post -c $num_usr -n $num_usr http://127.0.0.1:3000/api/usages

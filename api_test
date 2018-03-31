@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [[ $# -eq 0 ]]
+then
+	echo "usage: >./api_test [number of requests]"
+	exit 0;
+fi
+
+num_requests="$1"
+
+for (( index=0; index < num_requests; index++ ))
+do
+	echo "top for"
+	curl -X POST -H "Content-Type: application/json" --data '{"patientId":"100","timestamp":"Tue Nov 01 2016 09:11:51 GMT-0500 (CDT)","medication":"Albuterol"}' http://localhost:3000/api/usages &
+done
+

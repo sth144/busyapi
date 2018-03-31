@@ -4,6 +4,7 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
+var memcached = require('memcached');
 
 var index = require('./routes/index');
 var users = require('./routes/users');
@@ -13,6 +14,12 @@ var app = express();
 // simple in-memory usage store
 var usages = [];
 app.usages = usages;
+
+// memory cache to replace usages array
+var memcache = new memcached('localhost:3020');
+app.memcache = memcache;
+var usageCount = 0;
+app.usageCount = usageCount;
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
