@@ -8,4 +8,4 @@ fi
 
 num_usr="$1"
 
-C:/Apache24/bin/ab.exe -p post -c $num_usr -n $num_usr http://127.0.0.1:3000/api/usages
+C:/Apache24/bin/ab.exe -T application/json -p post.json -c $num_usr -n $num_usr http://127.0.0.1:3000/api/usages

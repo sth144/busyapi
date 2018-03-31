@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [[ $# -eq 0 ]]
+then
+	echo "usage: >./api_test [number of requests]"
+	exit 0;
+fi
+
+num_usr="$1"
+
+C:/Apache24/bin/ab.exe -T application/json -p post.json -c $num_usr -n $num_usr https://node033118.appspot.com/api/usages
