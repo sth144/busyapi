@@ -1,3 +1,7 @@
+# yaml file for Google Cloud deployment
+# This deployment showed decreased performance from running locally,
+# could try troubleshooting
+
 env: flex
 runtime: nodejs
 
