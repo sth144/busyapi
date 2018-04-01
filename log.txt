@@ -3,13 +3,11 @@ Sean Hinds
 
 Development Log: Scaling BusyAPI to 1M Users per Minute
 
-/* Problem Analysis and Initial Thoughts */
-I examined the repository, and read the README and all of the code files. I constructed a mental diagram of how the application works. It is a standard Express.js application which uses a fairly simple routing structure to handle different urls. The critical endpoint is './routes/api/usages', which contains a POST HTTP request handler for the url appendage: ‘/api/usages’. The callback to this route handler pushes the POST request body to an array in memory for storage. It then sets usageId as the length of the usage array. Array.length in JavaScript is an O(1) time-complexity operation, so there is should be no performance boost to changing this to ‘usageId++;’. 
-
-/* Environment Setup */
+/* Problem Analysis, Initial Thoughts, Environment Setup*/
+I examined the repository, and read the README and all of the code files. I constructed a mental diagram of how the application works. It is a standard Express.js application which uses a fairly simple routing structure to handle different urls. The critical endpoint is './routes/api/usages', which contains a POST HTTP request handler for the url appendage: â€˜/api/usagesâ€™. The callback to this route handler pushes the POST request body to an array in memory for storage. It then sets usageId as the length of the usage array. Array.length in JavaScript is an O(1) time-complexity operation, so there is should be no performance boost to changing this to â€˜usageId++;â€™. 
 I opened a Git Bash shell, Chrome browser window for testing, and a Sublime project folder with my cloned fork of busyapi. I ran npm install and npm start. 
 
-/* Initial Test Development */
+/* Initial Test Development and Code Implementation */
 First I needed to develop a way to demonstrate the problem, and then a way to test the use case so that I could assess my code changes. I wrote a crude bash script which and takes a command line argument specifying the number of requests to make, and then calls the curl command from README.md in a for-loop.
 A quick test for 1-10,000 requests showed O(n) time complexity, as expected. However, the number of requests per second was only about 100R/s. It quickly became clear to me that I was seeing was the limit of the amount of requests my local machine could generate--not at all a metric of server capacity.
 I tested various load testing software packages, including artillery and wrk. I encountered a plateau of about 50R/s with both artillery and wrk (again testing in the range of 1-10,000): 
@@ -21,9 +19,7 @@ I tested various load testing software packages, including artillery and wrk. I 
 1000	48.83	1.4	200
 10000	49.86	1.2	60
 
-This plateau was probably an artefact of my local environment. I Decided to implement some code and revisit testing shortly (see below).  
-
-/* Initial Code Implementation */
+This plateau was probably an artefact of my local environment. I Decided to implement some code and revisit testing shortly (see below). 
 Node.js is single threaded but it should be asynchronous by default. That means the callback in the post request handler should not block other requests. To verify this, I used the setTimeout() function to pause during the callback, and observed that later requests were still processed while a given request was paused in the callback. My setTimeout() test also supported my assumption above that my testing bottleneck was due to my local machine. This is because without pausing in the callback, requests appear to be processed synchronously, so the arrival of HTTP requests is rate-limiting. 
 I introduced clustering using the npm cluster module and the fork() function. This should allow the node server to distribute work over the multiple cores on my CPU, which could improve performance.
 Further research indicated that each worker process in a clustered node program has its own memory, so I needed to implement shared memory between workers. Researched caching packages like redis, node-cache and memcached; decided to implement memcached. In the future, this cache could be dumped into a database like mongoDB for persistent storage.
@@ -48,15 +44,13 @@ Number of Users	Runtime (ms)	Requests per Second
 1000		1768		565.77
 10000		20582		485.87
 
-I appeared to achieve peak performance on my local machine at 100 users. Assuming this result is real, at 100 users, clustering and caching appears to increase performance nearly three-fold, to ~3200R/s. This is still far from the target of ~16,000R/s. The performance increase from clustering would likely be greater if there were a computationally intensive endpoint. With a computationally intensive endpoint, the benefits of parallelism would far surpass the computational overhead of clustering. I think I see a small benefit because there is little computation involved in processing each request. I think the poor performance for levels of users 1000 and above is due to limitations of my local machine. I also tried commenting out console logs, and morgan logging, which did not improve performance.
-I attempted to use the npm redis module instead of memcached, but found it to be buggy, and reverted to memcached due to my time constraint. 
+Clustering and caching apparently decreased performance almost 5-fold for low call volumes. This is probably because the computational overhead of clustering negates the benefits of parallelism. I appeared to achieve peak performance on my local machine at 100 users. Assuming this result is genuine, at 100 users, clustering and caching appears to increase performance nearly three-fold, to ~3200R/s. This is still far from the target of ~16,000R/s. The performance increase from clustering would likely be greater if there were a computationally intensive endpoint. I think I only see a small benefit at 100 users because there is little computation involved in processing each request. Poor performance for levels of users 1000 and above is likely due to limitations of my local machine. 
+I also tried commenting out console logs, and morgan logging, which did not improve performance. I attempted to use the npm redis module instead of memcached, but found it to be buggy, and reverted to memcached due to my time constraint. 
 
-/* Software Architecture Suggestions */
+/* Software/Hardware Architecture Suggestions */
 I believe my implementation of caching and clustering should improve performance. A better testing environment is necessary to confirm this. Perhaps distributed load testing would allow for testing of higher numbers of users. Regardless, as this application needs to service a high volume of clients, a parallel software architecture (clustering) would be a good route to pursue.
-
-/* Physical Architecture Suggestions */
 Assuming clustered execution in the software, this app should be run on a server with a high number of hyperthreaded CPU cores for parallel processing, as well as a high volume of memory for caching. Horizontal scaling could also be implemented, with multiple machines receiving requests. A server machine with a high volume of storage should be used as a database.
 
 /* Next Steps */
-I decided to try deploying the application using Google Cloud. I found this decreased performance. A future direction would be to troubleshoot this, but the time constraint of this exercise does not allow for this.
+I decided to try deploying the application using Google Cloud. I found this decreased performance. In the future I would like to troubleshoot this, but the time constraint of this exercise does not allow for this.
 
