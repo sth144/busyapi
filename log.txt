@@ -12,45 +12,45 @@ First I needed to develop a way to demonstrate the problem, and then a way to te
 A quick test for 1-10,000 requests showed O(n) time complexity, as expected. However, the number of requests per second was only about 100R/s. It quickly became clear to me that I was seeing was the limit of the amount of requests my local machine could generate--not at all a metric of server capacity.
 I tested various load testing software packages, including artillery and wrk. I encountered a plateau of about 50R/s with both artillery and wrk (again testing in the range of 1-10,000): 
 
-	RPS     latency	system runtime (ms)
-1	2.04	7.6	152
-10	7.14	1.9	166
-100	39.84	1.5	106
-1000	48.83	1.4	200
-10000	49.86	1.2	60
+Number of Users	Requests per Second	System Runtime (ms)	latency	
+1		2.04			152			7.6	
+10		7.14			166			1.9	
+100		39.84			106			1.5	
+1000		48.83			200			1.4	
+10000		49.86			60			1.2	
 
-This plateau was probably an artefact of my local environment. I Decided to implement some code and revisit testing shortly (see below). 
-Node.js is single threaded but it should be asynchronous by default. That means the callback in the post request handler should not block other requests. To verify this, I used the setTimeout() function to pause during the callback, and observed that later requests were still processed while a given request was paused in the callback. My setTimeout() test also supported my assumption above that my testing bottleneck was due to my local machine. This is because without pausing in the callback, requests appear to be processed synchronously, so the arrival of HTTP requests is rate-limiting. 
+This plateau was probably an artefact of my local environment. I Decided to implement some code and revisit testing shortly (see 'Further Test Development...' below). 
+Node.js is single threaded but it should be asynchronous by default. That means the callback in the post request handler should not block other requests. To confirm this, I used the setTimeout() function to pause during the callback, and observed that later requests were still processed while a given request was paused in the callback. Good. My setTimeout() test also supported my assumption above that my testing bottleneck was due to my local machine. This is because without pausing in the callback, requests appear to be processed synchronously, so the arrival of HTTP requests was rate-limiting. 
 I introduced clustering using the npm cluster module and the fork() function. This should allow the node server to distribute work over the multiple cores on my CPU, which could improve performance.
-Further research indicated that each worker process in a clustered node program has its own memory, so I needed to implement shared memory between workers. Researched caching packages like redis, node-cache and memcached; decided to implement memcached. In the future, this cache could be dumped into a database like mongoDB for persistent storage.
+Further research indicated that each worker in a clustered node program has its own memory, so I needed to implement shared memory. A cache would be appropriatefor this, and could potentially boost performance. Researched caching packages like redis, node-cache and memcached; decided to implement memcached. In the future, this cache could be periodically dumped into a database like mongoDB for persistent storage.
 
 /* Further Test Development and Code Implementation */
 I revisited test development, testing the server with Apache Benchmark software. Much to my delight, this package did not encounter the 50R/s plateau I saw with artillery and wrk. With Apache benchmark, I could apparently get data for up to 10,000 users. For the purposes of this quick exercise, I decided to assume that a R/s of ~16,000 would server as a proxy for 1 million users per minute. This is because each user is only transferring a small JSON object, so a request should only occupy a server port transiently.
 I re-collected data for 1-10,000 users, toggling cluster + caching, and got some interesting results:
 
 unclustered + uncached
-Number of Users	Runtime (ms)	Requests per Second
-1		16		63.98
-10		7		1424.7
-100		78		1279.85
-1000		1687		592.94
-10000		17503		612.93
+Number of Users	System Runtime (ms)	Requests per Second
+1		16			63.98
+10		7			1424.7
+100		78			1279.85
+1000		1687			592.94
+10000		17503			612.93
 		
 clustered + cached	
-Number of Users	Runtime (ms)	Requests per Second
-1		16		63.88
-10		31		320.24
-100		31		3202.56
-1000		1768		565.77
-10000		20582		485.87
+Number of Users	System Runtime (ms)	Requests per Second
+1		16			63.88
+10		31			320.24
+100		31			3202.56
+1000		1768			565.77
+10000		20582			485.87
 
-Clustering and caching apparently decreased performance almost 5-fold for low call volumes. This is probably because the computational overhead of clustering negates the benefits of parallelism. I appeared to achieve peak performance on my local machine at 100 users. Assuming this result is genuine, at 100 users, clustering and caching appears to increase performance nearly three-fold, to ~3200R/s. This is still far from the target of ~16,000R/s. The performance increase from clustering would likely be greater if there were a computationally intensive endpoint. I think I only see a small benefit at 100 users because there is little computation involved in processing each request. Poor performance for levels of users 1000 and above is likely due to limitations of my local machine. 
-I also tried commenting out console logs, and morgan logging, which did not improve performance. I attempted to use the npm redis module instead of memcached, but found it to be buggy, and reverted to memcached due to my time constraint. 
+Clustering and caching apparently decreased performance almost 5-fold for low call volumes. This could be because the computational overhead of clustering negates the benefits of parallelism. I appeared to achieve peak performance on my local machine at 100 users. Assuming this result is genuine, with 100 users clustering and caching appears to increase performance nearly three-fold, to ~3200R/s. This is still far from the target of ~16,000R/s. The performance increase from clustering would likely be greater if there were a computationally intensive endpoint. I think I only see a small benefit at 100 users because there is little computation involved in processing each request. Poor performance for levels of users 1000 and above is likely due to limitations of my local machine. 
+I also tried commenting out console logs and morgan logging, which did not improve performance. I attempted to use the npm redis module instead of memcached, but found it to be buggy, and reverted to memcached due to my time constraint. 
 
 /* Software/Hardware Architecture Suggestions */
-I believe my implementation of caching and clustering should improve performance. A better testing environment is necessary to confirm this. Perhaps distributed load testing would allow for testing of higher numbers of simulated users. Regardless, as this application needs to service a high volume of clients, a parallel software architecture (clustering) would be a good route to pursue.
-Assuming clustered execution in the software, this app should be run on a server with a high number of hyperthreaded CPU cores for parallel processing, as well as a high volume of memory for caching. Horizontal scaling could also be implemented, with multiple load-balanced machines receiving requests. A server machine with a high volume of storage should be used as a database.
+I believe my implementation of caching and clustering should improve performance. A better testing environment than I have available is necessary to confirm this. Perhaps distributed load testing would allow for testing of higher numbers of simulated users. Regardless, as this application needs to service a high volume of clients, a parallel software architecture (clustering) would be a good route to pursue.
+Assuming clustered execution in the software, this app should be run on a server with a high number of CPU cores for parallel processing, as well as a high volume of memory for caching. Hyper-threaded CPUs should be considered. Horizontal scaling could also be implemented, with multiple load-balanced machines receiving requests. A separate machine might be used to store a database.
 
 /* Next Steps */
-I decided to try deploying the application using Google Cloud App Engine with 8 CPU cores. I found this decreased performance. In the future I would like to troubleshoot this, but the time constraint of this exercise does not allow for this.
+I decided to try deploying the application using Google Cloud App Engine with 8 CPU cores. This actually showed decreased performance. In the future I would like to troubleshoot this, but the time constraint of this exercise does not allow for this.
 
