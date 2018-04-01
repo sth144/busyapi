@@ -48,9 +48,9 @@ Clustering and caching apparently decreased performance almost 5-fold for low ca
 I also tried commenting out console logs, and morgan logging, which did not improve performance. I attempted to use the npm redis module instead of memcached, but found it to be buggy, and reverted to memcached due to my time constraint. 
 
 /* Software/Hardware Architecture Suggestions */
-I believe my implementation of caching and clustering should improve performance. A better testing environment is necessary to confirm this. Perhaps distributed load testing would allow for testing of higher numbers of users. Regardless, as this application needs to service a high volume of clients, a parallel software architecture (clustering) would be a good route to pursue.
-Assuming clustered execution in the software, this app should be run on a server with a high number of hyperthreaded CPU cores for parallel processing, as well as a high volume of memory for caching. Horizontal scaling could also be implemented, with multiple machines receiving requests. A server machine with a high volume of storage should be used as a database.
+I believe my implementation of caching and clustering should improve performance. A better testing environment is necessary to confirm this. Perhaps distributed load testing would allow for testing of higher numbers of simulated users. Regardless, as this application needs to service a high volume of clients, a parallel software architecture (clustering) would be a good route to pursue.
+Assuming clustered execution in the software, this app should be run on a server with a high number of hyperthreaded CPU cores for parallel processing, as well as a high volume of memory for caching. Horizontal scaling could also be implemented, with multiple load-balanced machines receiving requests. A server machine with a high volume of storage should be used as a database.
 
 /* Next Steps */
-I decided to try deploying the application using Google Cloud. I found this decreased performance. In the future I would like to troubleshoot this, but the time constraint of this exercise does not allow for this.
+I decided to try deploying the application using Google Cloud App Engine with 8 CPU cores. I found this decreased performance. In the future I would like to troubleshoot this, but the time constraint of this exercise does not allow for this.
 
