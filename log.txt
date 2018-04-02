@@ -5,10 +5,10 @@ Development Log: Scaling BusyAPI to 1M Users per Minute
 
 /* Problem Analysis, Initial Thoughts, Environment Setup*/
 I examined the repository, and read the README and all of the code files. I constructed a mental diagram of how the application works. It is a standard Express.js application which uses a fairly simple routing structure to handle different urls. The critical endpoint is './routes/api/usages', which contains a POST HTTP request handler for the url appendage: ‘/api/usages’. The callback to this route handler pushes the POST request body to an array in memory for storage. It then sets usageId as the length of the usage array. Array.length in JavaScript is an O(1) time-complexity operation, so there is should be no performance boost to changing this to ‘usageId++;’. 
-I opened a Git Bash shell, Chrome browser window for testing, and a Sublime project folder with my cloned fork of busyapi. I ran npm install and npm start. 
+I opened a Git Bash shell, Chrome browser window for testing, and a Sublime project folder with my cloned fork of busyapi. I ran npm install and npm start to run the server locally. 
 
 /* Initial Test Development and Code Implementation */
-First I needed to develop a way to demonstrate the problem, and then a way to test the use case so that I could assess my code changes. I wrote a crude bash script which and takes a command line argument specifying the number of requests to make, and then calls the curl command from README.md in a for-loop.
+First I needed to develop a way to demonstrate the problem, and then a way to test the use case so that I could assess my code changes. I wrote a crude bash script which and takes a command line argument specifying the number of requests to make, and then calls the 'curl' command from README.md in a for-loop.
 A quick test for 1-10,000 requests showed O(n) time complexity, as expected. However, the number of requests per second was only about 100R/s. It quickly became clear to me that I was seeing was the limit of the amount of requests my local machine could generate--not at all a metric of server capacity.
 I tested various load testing software packages, including artillery and wrk. I encountered a plateau of about 50R/s with both artillery and wrk (again testing in the range of 1-10,000): 
 
@@ -48,7 +48,7 @@ Clustering and caching apparently decreased performance almost 5-fold for low ca
 I also tried commenting out console logs and morgan logging, which did not improve performance. I attempted to use the npm redis module instead of memcached, but found it to be buggy, and reverted to memcached due to my time constraint. 
 
 /* Software/Hardware Architecture Suggestions */
-I believe my implementation of caching and clustering should improve performance. A better testing environment than I have available is necessary to confirm this. Perhaps distributed load testing would allow for testing of higher numbers of simulated users. Regardless, as this application needs to service a high volume of clients, a parallel software architecture (clustering) would be a good route to pursue.
+I believe my implementation of caching and clustering should improve throughput. A better testing environment than I have available is necessary to confirm this. Perhaps distributed load testing would allow for testing of higher numbers of simulated users. Regardless, as this application needs to service a high volume of clients, a parallel software architecture (clustering) would be a good route to pursue.
 Assuming clustered execution in the software, this app should be run on a server with a high number of CPU cores for parallel processing, as well as a high volume of memory for caching. Hyper-threaded CPUs should be considered. Horizontal scaling could also be implemented, with multiple load-balanced machines receiving requests. A separate machine might be used to store a database.
 
 /* Next Steps */
